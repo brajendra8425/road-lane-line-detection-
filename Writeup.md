@@ -1,3 +1,6 @@
+# **Lane Lines Detection Using Python and OpenCV** 
+### In this project, I used Python and OpenCV to detect lane lines on the road. I developed a processing pipeline that works on a series of individual images, and applied the result to a video stream.
+
 ![jpg](output_example.jpg)
 
 Pipeline architecture:
@@ -13,7 +16,6 @@ Pipeline architecture:
 6. Average and extrapolating the lane lines.
 7. Apply on video streams.
 
-I'll explain each step in details below.
 
 ### **1. Loading test images:**
 ----
@@ -139,7 +141,12 @@ def hough_transform(image):
 
 ### **6. Averaging and extrapolating the lane lines**
 ----
-We have multiple lines detected for each lane line. We need to average all these lines and draw a single line for each lane line. We also need to extrapolate the lane lines to cover the full lane line length.
+We have multiple lines detected for each lane line. We need to average all these lines and draw a single line for each lane line.
+We also need to extrapolate the lane lines to cover the full lane line length.
+
+The left lane should have a negative slope (given that `y` coordinate is reversed in the images), and the right lane should have a negative slope. Therefore, we'll collect positive slope lines and negative slope lines separately and take averages.
+After calculating the average slope and intercept of each lane line, we'll convert these values to pixel points, and then we'll be able to draw the full length lane line.
+
 ```python
 def average_slope_intercept(lines):
     """
@@ -216,7 +223,42 @@ def draw_lane_lines(image, lines, color=[255, 0, 0], thickness=12):
     return cv2.addWeighted(image, 1.0, line_image, 1.0, 0.0)
 ```
 
+
+### **7. Apply on video streams**
+----
+Now, we'll use the above functions to detect lane lines from a video stream.
+The video inputs are in test_videos folder. The video outputs are generated in output_videos folder.
+
+```python
+def frame_processor(image):
+    """
+    Process the input frame to detect lane lines.
+        Parameters:
+            image: Single video frame.
+    """
+    color_select = HSL_color_selection(image)
+    gray         = gray_scale(color_select)
+    smooth       = gaussian_smoothing(gray)
+    edges        = canny_detector(smooth)
+    region       = region_selection(edges)
+    hough        = hough_transform(region)
+    result       = draw_lane_lines(image, lane_lines(image, hough))
+    return result
+
+def process_video(test_video, output_video):
+    """
+    Read input video stream and produce a video file with detected lane lines.
+        Parameters:
+            test_video: Input video.
+            output_video: A video file with detected lane lines.
+    """
+    input_video = VideoFileClip(os.path.join('test_videos', test_video), audio=False)
+    processed = input_video.fl_image(frame_processor)
+    processed.write_videofile(os.path.join('output_videos', output_video), audio=False)
+```
+
 ## **Conclusion:**
 ----
 The project succeeded in detecting the lane lines clearly in the video streams.
-This project is intended to only detect (mostly) straight lines. Detecting curved lane line is behind the scope of this work.
+This project is intended to only detect (mostly) straight lines. A possible improvement would be to modify the above pipeline to detect curved lane line.
+Another potential improvement could be to identify the lane boundaries and detect the full lane, not just the lane lines.
